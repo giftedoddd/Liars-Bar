@@ -2,19 +2,24 @@ from src.Card import Card
 from src.Enums import CardValue, CardType
 import random
 
-class Deck:
+class Deck(Card):
     def __init__(self):
-        self.cards = []
+        self.deck = []
+        self.build()
+
+    def build(self):
         for value in CardValue:
             for type in CardType:
-                self.cards.append(Card(value, type))
-        self.shuffle()
-    
+                self.deck.append(Card(value, type))
+
     def shuffle(self):
-        random.shuffle(self.cards)
-    
+        random.shuffle(self.deck)
+
     def draw(self):
-        return self.cards.pop()
-    
-    def __len__(self):
-        return len(self.cards)
+        return self.deck.pop()
+
+    def __str__(self):
+        deck = ""
+        for card in self.deck:
+            deck += str(card) + "\n"
+        return deck

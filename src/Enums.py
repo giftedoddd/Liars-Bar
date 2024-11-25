@@ -1,5 +1,4 @@
 from enum import Enum, auto
-import random
 
 class CardValue(Enum):
     Ace = auto()
