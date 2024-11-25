@@ -6,7 +6,17 @@ class Server:
         self.port = port       # Host's port: Integer value that need to be more than 1023 and less than 65535.
         self.members = members # Number of participants of the game.
         self.clients = []      # A list to store connected clients.
-        self.ip_check()        # Checking if ip passed by user is valid or not.
+
+    def __enter__(self):
+        self.ip_check()
+        self.start_server()
+
+    def __exit__(self):
+        for client in self.clients:
+            client.close()
+
+    def __len__(self):
+        return len(self.clients)
 
     def __repr__(self):
         return f"Host Server Running At {self.ip}:{self.port}"
