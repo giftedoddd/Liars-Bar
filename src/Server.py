@@ -3,15 +3,14 @@ from threading import Thread, Lock, Condition
 
 class Server:
     def __init__(self, members, ip=None, port=9353):
-        self.ip = ip           # Host's ip address: Local(Private) ip that host machine is currently running on.
-        self.port = port       # Host's port: Integer value that need to be more than 1023 and less than 65535.
-        self.members = members # Number of participants of the game.
-        self.clients = []      # A list to store connected clients.
+        self.ip = ip                            # Host's ip address: Local(Private) ip that host machine is currently running on.
+        self.port = port                        # Host's port: Integer value that need to be more than 1023 and less than 65535.
+        self.members = members                  # Number of participants of the game.
+        self.clients = []                       # A list to store connected clients.
         self.lock = Lock()
         self.condition = Condition(self.lock)
 
     def __enter__(self):
-        self.ip_check()
         self.start_server()
 
     def __exit__(self):
@@ -24,7 +23,6 @@ class Server:
     def __repr__(self):
         return f"Host Server Running At {self.ip}:{self.port}"
 
-    # TODO: START_SERVER FUNCTION HAVE TO USE THIS FUNCTION IN FUTURE.
     def ip_check(self) -> None:
         """
         Checks if passed ip address is valid or not.
@@ -48,13 +46,15 @@ class Server:
             except Exception as e:
                 print(f"Crashed due unhandled Exception:\t{e}")
 
-    # TODO: NOT FINISHED YET
     def start_server(self):
         """
         Starts the server at given ip address and port.
         args: None
         returns: None
         """
+
+        self.ip_check()
+
         with sock.socket(sock.AF_INET, sock.SOCK_STREAM) as socket:
             decline_message = "Server is full,Wait for the next Session!".encode(encoding="utf-8")
             socket.bind((self.ip, self.port))
@@ -68,8 +68,17 @@ class Server:
                     continue
 
                 self.clients.append(client_socket)
-                client_thread = Thread(target=handle_client, args=(client_socket, client_address))
+                client_thread = Thread(target=self.handle_client, args=(client_socket, client_address))
                 client_thread.start()
 
-    # def handle_client(self):
+    def handle_client(self, client_socket: sock.socket, client_address):
+        print(f"Connection established with {client_address}")
+
+        while True:
+            data = client_socket.recv(1024)
+            if not data:
+                print(f"Connection Closed by client{client_address}")
+                break
+
+            print(f"Received From Client: {client_address} {data.decode(encoding="utf-8")}")
 
