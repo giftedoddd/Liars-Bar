@@ -6,16 +6,10 @@ class Server:
         self.ip = ip                            # Host's ip address: Local(Private) ip that host machine is currently running on.
         self.port = port                        # Host's port: Integer value that need to be more than 1023 and less than 65535.
         self.members = members                  # Number of participants of the game.
-        self.clients = []                       # A list to store connected clients.
+        self.clients = {}                       # A dict to store connected clients.
         self.lock = Lock()
         self.condition = Condition(self.lock)
-
-    def __enter__(self):
-        self.start_server()
-
-    def __exit__(self):
-        for client in self.clients:
-            client.close()
+        self.data = None
 
     def __len__(self):
         return len(self.clients)
@@ -40,11 +34,19 @@ class Server:
                         raise OSError
                     # Assigning new valid ip address
                     self.ip = ip[0]
+                    return
 
             except OSError as e:
                 print(f"Function \"ip_check\" throws an Exception:\t{e}")
             except Exception as e:
                 print(f"Crashed due unhandled Exception:\t{e}")
+
+        try:
+            with sock.socket(sock.AF_INET, sock.SOCK_STREAM) as socket:
+                socket.bind((self.ip, self.port))
+        except OSError:
+            self.ip = None
+            self.ip_check()
 
     def start_server(self):
         """
@@ -56,29 +58,39 @@ class Server:
         self.ip_check()
 
         with sock.socket(sock.AF_INET, sock.SOCK_STREAM) as socket:
-            decline_message = "Server is full,Wait for the next Session!".encode(encoding="utf-8")
             socket.bind((self.ip, self.port))
             socket.listen(self.members)
             print(self)
 
-            while True:
+            while len(self.clients) < self.members:
                 client_socket, client_address = socket.accept()
-                if len(self.clients) > self.members:
-                    client_socket.sendall(decline_message)
-                    continue
+                self.clients[client_socket] = client_address
 
-                self.clients.append(client_socket)
-                client_thread = Thread(target=self.handle_client, args=(client_socket, client_address))
-                client_thread.start()
+                if not len(self.clients) == self.members:
+                    print(f"Waiting for {self.members - len(self.clients)} other client to join!")
+
+                # TODO: NEED TO CHECK IF CLIENT IS STILL ALIVE
+                if len(self.clients) == self.members:
+                    for client,address in self.clients.items():
+                        client_thread = Thread(target=self.handle_client, args=(client, address))
+                        client_thread.start()
 
     def handle_client(self, client_socket: sock.socket, client_address):
-        print(f"Connection established with {client_address}")
-
-        while True:
-            data = client_socket.recv(1024)
-            if not data:
-                print(f"Connection Closed by client{client_address}")
-                break
-
-            print(f"Received From Client: {client_address} {data.decode(encoding="utf-8")}")
-
+        with client_socket:
+            print(f"Connection established with {sock.getfqdn(client_address[0])} from {client_address[0]}")
+            while True:
+                data = client_socket.recv(1024).decode(encoding="utf-8")
+                if not self.data:
+                    print(f"Connection Closed by client{client_address}")
+                    break
+                with self.lock:
+                    self.data = data
+                    self.condition.notify_all()
+    # TODO:NOT FINISHED YET
+    def get_command(self):
+        with self.condition:
+            while self.condition is None:
+                self.condition.wait()
+            data = self.data
+            self.data = None
+        return data
