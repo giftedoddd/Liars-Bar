@@ -21,18 +21,18 @@ class Server:
     def __repr__(self):
         return f"Host Server Running At {self.ip}:{self.port}"
 
-    # TODO: START_SERVER FUNCTION HATE TO USE THIS FUNCTION IN FUTURE.
+    # TODO: START_SERVER FUNCTION HAVE TO USE THIS FUNCTION IN FUTURE.
     def ip_check(self) -> None:
         """
         Checks if passed ip address is valid or not.
-        args:None
+        args: None
         returns: None
         """
         if self.ip is None:
             try:
                 # Try a simple ping connection to 1.1.1.1 to get the private ip address
                 with sock.socket(sock.AF_INET, sock.SOCK_DGRAM) as connection:
-                    connection.settimeout(0)
+                    connection.settimeout(2)
                     connection.connect(("1.1.1.1", 80))
                     ip = connection.getsockname()
                     if ip[0].startswith("127"):
@@ -41,7 +41,7 @@ class Server:
                     self.ip = ip[0]
 
             except OSError as e:
-                print(f"Function \"ip_check\" throw an Exception:\t{e}")
+                print(f"Function \"ip_check\" throws an Exception:\t{e}")
             except Exception as e:
                 print(f"Crashed due unhandled Exception:\t{e}")
 
