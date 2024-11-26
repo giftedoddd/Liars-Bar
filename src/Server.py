@@ -1,4 +1,5 @@
 import socket as sock
+from threading import Thread, Lock, Condition
 
 class Server:
     def __init__(self, members, ip=None, port=9353):
@@ -6,6 +7,8 @@ class Server:
         self.port = port       # Host's port: Integer value that need to be more than 1023 and less than 65535.
         self.members = members # Number of participants of the game.
         self.clients = []      # A list to store connected clients.
+        self.lock = Lock()
+        self.condition = Condition(self.lock)
 
     def __enter__(self):
         self.ip_check()
@@ -53,15 +56,20 @@ class Server:
         returns: None
         """
         with sock.socket(sock.AF_INET, sock.SOCK_STREAM) as socket:
+            decline_message = "Server is full,Wait for the next Session!".encode(encoding="utf-8")
             socket.bind((self.ip, self.port))
             socket.listen(self.members)
             print(self)
 
             while True:
                 client_socket, client_address = socket.accept()
-
-                if len(self.clients) >= self.members:
+                if len(self.clients) > self.members:
+                    client_socket.sendall(decline_message)
                     continue
 
                 self.clients.append(client_socket)
+                client_thread = Thread(target=handle_client, args=(client_socket, client_address))
+                client_thread.start()
+
+    # def handle_client(self):
 
