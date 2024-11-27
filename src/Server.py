@@ -1,13 +1,10 @@
-from importlib.util import source_hash
 from threading import Thread, Lock, Condition
 import socket as sock
-import random as rd
-import time
 
 class Server:
     def __init__(self, members):
         self.__ip = None                                 # Host's ip address: Local(Private) ip that host machine is currently running on.
-        self.__data = None
+        self.__received_data = None
         self.__port = 9353                               # Host's port: Integer value that need to be more than 1023 and less than 65535.
         self.__members = members                          # Number of participants of the game.
         self.__clients = {}                               # A dict to store connected clients.
@@ -41,7 +38,7 @@ class Server:
         except Exception as e:
             print(f"Crashed due unhandled Exception:\t{e}")
 
-    def start_server(self):
+    def run(self):
         """
         Starts the server at given ip address and port.
         args: None
@@ -64,32 +61,32 @@ class Server:
 
                 if len(self) == self.__members:
                     for client,address in self.__clients.items():
-                        client_thread = Thread(target=self.handle_client, args=(client, address))
+                        client_thread = Thread(target=self.__handle_client, args=(client, address))
                         client_thread.start()
 
-    def handle_client(self, client_socket: sock.socket, client_address):
+    def __handle_client(self, client_socket, client_address):
         with client_socket:
             print(f"Connection established with {sock.getfqdn(client_address[0])} from {client_address[0]}")
             while True:
-                data = client_socket.recv(1024).decode(encoding="utf-8")
-                if not data:
-                    print(f"Connection Closed by client{client_address}")
-                    time.sleep(0.5)
+                received_data = client_socket.recv(1024).decode(encoding="utf-8")
+                if not received_data:
                     continue
-                with self.lock:
-                    self.data = data
-                    self.condition.notify_all()
-    # TODO:NOT FINISHED YET
-    def get_command(self):
-        with self.condition:
-            while self.data is None:
-                self.condition.wait()
-            data = self.data
-            self.data = None
-        return data
+                with self.__lock:
+                    self.send_data(client_socket, f"Received {received_data}")
+                    self.__received_data = received_data
+                    self.__condition.notify_all()
 
-# s = Server(1, ip="192.168.146.158")
-# s.start_server()
-# while True:
-#     mamad = s.get_command()
-#     print(mamad)
+    def receive_data(self):
+        with self.__condition:
+            while self.__received_data is None:
+                self.__condition.wait()
+            received = self.__received_data
+            self.__received_data = None
+        return received
+
+    def send_data(self, client_socket, message):
+        client_socket.sendall(message.encode("utf-8"))
+        print(f"Sent to {client_socket.getfqdn(client_socket[0])}: {message}")
+
+s= Server(1)
+s.run()
