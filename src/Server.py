@@ -4,12 +4,12 @@ import socket as sock
 class Server:
     def __init__(self, members):
         self.__ip = None                                 # Host's ip address: Local(Private) ip that host machine is currently running on.
-        self.__received_data = None
-        self.__port = 9353                               # Host's port: Integer value that need to be more than 1023 and less than 65535.
-        self.__members = members                          # Number of participants of the game.
-        self.__clients = {}                               # A dict to store connected clients.
-        self.__lock = Lock()
-        self.__condition = Condition(self.__lock)
+        self.__received_data = None                      # Received data from Client.
+        self.__port = 9353                               # Host's port: an Integer value that need to be more than 1024 and less than 65535.
+        self.__members = members                         # Number of participants of the game.
+        self.__clients = {}                              # A dict{socket object:client ip} to store connected clients.
+        self.__lock = Lock()                             # For thread Syncing.
+        self.__condition = Condition(self.__lock)        # For thread locking.
 
     def __len__(self) -> int:
         return len(self.__clients)
@@ -19,7 +19,7 @@ class Server:
 
     def __set_ip(self) -> None:
         """
-        Checks if passed ip address is valid or not.
+        Sets the ip address of the Host server.
         args: None
         returns: None
         """
@@ -38,45 +38,63 @@ class Server:
         except Exception as e:
             print(f"Crashed due unhandled Exception:\t{e}")
 
-    def run(self):
+    def run(self) -> None:
         """
-        Starts the server at given ip address and port.
+        Runs the Host Server.
         args: None
         returns: None
         """
-
         self.__set_ip()
 
+        # Starting the Host.
         with sock.socket(sock.AF_INET, sock.SOCK_STREAM) as socket:
             socket.bind((self.__ip, self.__port))
             socket.listen(self.__members)
+
+            # Printing Host Server's status(ip address, port).
             print(self)
 
+            # Loops till remaining members joins.
             while len(self) < self.__members:
                 client_socket, client_address = socket.accept()
                 self.__clients[client_socket] = client_address
 
+                # Gives status about number of remaining members to join.
                 if not len(self) == self.__members:
                     print(f"Waiting for {self.__members - len(self)} other client to join!")
 
+                # Loops in clients dict to start thread for them.
                 if len(self) == self.__members:
                     for client,address in self.__clients.items():
                         client_thread = Thread(target=self.__handle_client, args=(client, address))
                         client_thread.start()
 
-    def __handle_client(self, client_socket, client_address):
+    # Handles the communication between host and clients.
+    def __handle_client(self, client_socket, client_address) -> None:
+        """
+         Handles the communication between host and clients.
+         Args: socket object, socket address
+         returns: None
+        """
         with client_socket:
             print(f"Connection established with {sock.getfqdn(client_address[0])} from {client_address[0]}")
+            # Waiting for data from client.
             while True:
                 received_data = client_socket.recv(1024).decode(encoding="utf-8")
                 if not received_data:
                     continue
+                # Notifies receive_data method if there is any received data from client.
                 with self.__lock:
                     self.send_data(client_socket, f"Received {received_data}")
                     self.__received_data = received_data
                     self.__condition.notify_all()
 
-    def receive_data(self):
+    def receive_data(self) -> str:
+        """
+        Stops the current work util receives a message from client.
+        Args: None
+        return: str
+        """
         with self.__condition:
             while self.__received_data is None:
                 self.__condition.wait()
@@ -84,9 +102,11 @@ class Server:
             self.__received_data = None
         return received
 
-    def send_data(self, client_socket, message):
+    def send_data(self, client_socket: sock.socket, message: str) -> None:
+        """
+        Sends a message to client.
+        Args: socket object, str
+        returns None
+        """
         client_socket.sendall(message.encode("utf-8"))
         print(f"Message: {message} Sent to {client_socket.getfqdn(client_socket[0])}")
-
-s= Server(1)
-s.run()
