@@ -1,12 +1,14 @@
-import socket as sock
-import time
+from importlib.util import source_hash
 from threading import Thread, Lock, Condition
+import socket as sock
+import random as rd
+import time
 
 class Server:
-    def __init__(self, members, port=9353):
+    def __init__(self, members):
         self.__ip = None                                 # Host's ip address: Local(Private) ip that host machine is currently running on.
         self.__data = None
-        self.__port = port                                # Host's port: Integer value that need to be more than 1023 and less than 65535.
+        self.__port = 9353                               # Host's port: Integer value that need to be more than 1023 and less than 65535.
         self.__members = members                          # Number of participants of the game.
         self.__clients = {}                               # A dict to store connected clients.
         self.__lock = Lock()
@@ -16,7 +18,7 @@ class Server:
         return len(self.__clients)
 
     def __repr__(self) -> str:
-        return f"Host Server Running At {self.__ip}:{self.__port}"
+        return f"Host Server is running on {sock.getfqdn(self.__ip[0])} at {self.__ip}:{self.__port}"
 
     def __set_ip(self) -> None:
         """
@@ -46,23 +48,22 @@ class Server:
         returns: None
         """
 
-        self.ip_check()
+        self.__set_ip()
 
         with sock.socket(sock.AF_INET, sock.SOCK_STREAM) as socket:
-            socket.bind((self.ip, self.port))
-            socket.listen(self.members)
+            socket.bind((self.__ip, self.__port))
+            socket.listen(self.__members)
             print(self)
 
-            while len(self.clients) < self.members:
+            while len(self) < self.__members:
                 client_socket, client_address = socket.accept()
-                self.clients[client_socket] = client_address
+                self.__clients[client_socket] = client_address
 
-                if not len(self.clients) == self.members:
-                    print(f"Waiting for {self.members - len(self.clients)} other client to join!")
+                if not len(self) == self.__members:
+                    print(f"Waiting for {self.__members - len(self)} other client to join!")
 
-                # TODO: NEED TO CHECK IF CLIENT IS STILL ALIVE
-                if len(self.clients) == self.members:
-                    for client,address in self.clients.items():
+                if len(self) == self.__members:
+                    for client,address in self.__clients.items():
                         client_thread = Thread(target=self.handle_client, args=(client, address))
                         client_thread.start()
 
@@ -87,8 +88,8 @@ class Server:
             self.data = None
         return data
 
-s = Server(1, ip="192.168.146.158")
-s.start_server()
-while True:
-    mamad = s.get_command()
-    print(mamad)
+# s = Server(1, ip="192.168.146.158")
+# s.start_server()
+# while True:
+#     mamad = s.get_command()
+#     print(mamad)
