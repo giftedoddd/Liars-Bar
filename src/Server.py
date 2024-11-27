@@ -86,7 +86,7 @@ class Server:
 
     def send_data(self, client_socket, message):
         client_socket.sendall(message.encode("utf-8"))
-        print(f"Sent to {client_socket.getfqdn(client_socket[0])}: {message}")
+        print(f"Message: {message} Sent to {client_socket.getfqdn(client_socket[0])}")
 
 s= Server(1)
 s.run()
