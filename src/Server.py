@@ -15,7 +15,7 @@ class Server:
         return len(self.__clients)
 
     def __repr__(self) -> str:
-        return f"Host Server is running on {sock.getfqdn(self.__ip[0])} at {self.__ip}:{self.__port}"
+        return f"Host Server is running on {self.__ip}:{self.__port}"
 
     def __set_ip(self) -> None:
         """
@@ -66,7 +66,7 @@ class Server:
                 # Loops in clients dict to start thread for them.
                 if len(self) == self.__members:
                     for client,address in self.__clients.items():
-                        client_thread = Thread(target=self.__handle_client, args=(client, address))
+                        client_thread = Thread(target=self.__handle_client, args=(client, address), name=f"{address[0]}:{address[1]}")
                         client_thread.start()
 
     # Handles the communication between host and clients.
@@ -80,7 +80,7 @@ class Server:
             print(f"Connection established with {sock.getfqdn(client_address[0])} from {client_address[0]}")
             # Waiting for data from client.
             while True:
-                received_data = client_socket.recv(1024).decode(encoding="utf-8")
+                received_data = client_socket.recv(1024).decode()
                 if not received_data:
                     continue
                 # Notifies receive_data method if there is any received data from client.
@@ -89,7 +89,7 @@ class Server:
                     self.__received_data = received_data
                     self.__condition.notify_all()
 
-    def receive_data(self) -> str:
+    def receive_data(self) -> None:
         """
         Stops the current work util receives a message from client.
         Args: None
@@ -102,11 +102,20 @@ class Server:
             self.__received_data = None
         return received
 
-    def send_data(self, client_socket: sock.socket, message: str) -> None:
+    def send_data(self, client_socket: sock, message: str) -> None:
         """
         Sends a message to client.
         Args: socket object, str
         returns None
         """
-        client_socket.sendall(message.encode("utf-8"))
+        client_socket.sendall(message.encode())
         print(f"Message: {message} Sent to {client_socket.getfqdn(client_socket[0])}")
+
+    def close(self):
+        """
+        Closes all the socket connections for appropriate exit.
+        Args: None
+        returns: None
+        """
+        for keys in list(self.__clients):
+            keys.close()
