@@ -38,40 +38,6 @@ class Server:
         except Exception as e:
             print(f"Crashed due unhandled Exception:\t{e}")
 
-    def run(self) -> None:
-        """
-        Runs the Host Server.
-        args: None
-        returns: None
-        """
-        self.__set_ip()
-
-        # Starting the Host.
-        with sock.socket(sock.AF_INET, sock.SOCK_STREAM) as socket:
-            socket.bind((self.__ip, self.__port))
-            socket.listen(self.__members)
-
-            # Printing Host Server's status(ip address, port).
-            print(self)
-
-            # Loops till remaining members joins.
-            while len(self) < self.__members:
-                client_socket, client_address = socket.accept()
-                self.__clients[client_socket] = client_address
-
-                # Gives status about number of remaining members to join.
-                if not len(self) == self.__members:
-                    print(f"Waiting for {self.__members - len(self)} other client to join!")
-
-                # Loops in clients dict to start thread for them.
-                if len(self) == self.__members:
-                    for client,address in self.__clients.items():
-                        client_thread = Thread(target=self.__handle_client,
-                                               args=(client, address),
-                                               name=f"{address[0]}:{address[1]}",
-                                               daemon=True)
-                        client_thread.start()
-
     # Handles the communication between host and clients.
     def __handle_client(self, client_socket, client_address) -> None:
         """
@@ -108,6 +74,41 @@ class Server:
             self.__received_data = None
         return received
 
+
+    def run(self) -> None:
+        """
+        Runs the Host Server.
+        args: None
+        returns: None
+        """
+        self.__set_ip()
+
+        # Starting the Host.
+        with sock.socket(sock.AF_INET, sock.SOCK_STREAM) as socket:
+            socket.bind((self.__ip, self.__port))
+            socket.listen(self.__members)
+
+            # Printing Host Server's status(ip address, port).
+            print(self)
+
+            # Loops till remaining members joins.
+            while len(self) < self.__members:
+                client_socket, client_address = socket.accept()
+                self.__clients[client_socket] = client_address
+
+                # Gives status about number of remaining members to join.
+                if not len(self) == self.__members:
+                    print(f"Waiting for {self.__members - len(self)} other client to join!")
+
+                # Loops in clients dict to start thread for them.
+                if len(self) == self.__members:
+                    for client,address in self.__clients.items():
+                        client_thread = Thread(target=self.__handle_client,
+                                               args=(client, address),
+                                               name=f"{address[0]}:{address[1]}",
+                                               daemon=True)
+                        client_thread.start()
+
     def send_data(self, client_socket: sock, message: str) -> None:
         """
         Sends a message to client.
@@ -125,6 +126,3 @@ class Server:
         """
         for keys in list(self.__clients):
             keys.close()
-
-s = Server(1)
-s.run()
