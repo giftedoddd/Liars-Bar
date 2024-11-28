@@ -5,7 +5,7 @@ class Server:
     def __init__(self, members):
         self.__ip = None                                 # Host's ip address: Local(Private) ip that host machine is currently running on.
         self.__received_data = None                      # Received data from Client.
-        self.__port = 9353                               # Host's port: an Integer value that need to be more than 1024 and less than 65535.
+        self.__port = 9353                               # Host's port.
         self.__members = members                         # Number of participants of the game.
         self.__clients = {}                              # A dict{socket object:client ip} to store connected clients.
         self.__lock = Lock()                             # For thread Syncing.
@@ -66,7 +66,10 @@ class Server:
                 # Loops in clients dict to start thread for them.
                 if len(self) == self.__members:
                     for client,address in self.__clients.items():
-                        client_thread = Thread(target=self.__handle_client, args=(client, address), name=f"{address[0]}:{address[1]}")
+                        client_thread = Thread(target=self.__handle_client,
+                                               args=(client, address),
+                                               name=f"{address[0]}:{address[1]}",
+                                               daemon=True)
                         client_thread.start()
 
     # Handles the communication between host and clients.
@@ -76,18 +79,21 @@ class Server:
          Args: socket object, socket address
          returns: None
         """
-        with client_socket:
-            print(f"Connection established with {sock.getfqdn(client_address[0])} from {client_address[0]}")
-            # Waiting for data from client.
-            while True:
-                received_data = client_socket.recv(1024).decode()
-                if not received_data:
-                    continue
-                # Notifies receive_data method if there is any received data from client.
-                with self.__lock:
-                    self.send_data(client_socket, f"Received {received_data}")
-                    self.__received_data = received_data
-                    self.__condition.notify_all()
+        try:
+            with client_socket:
+                print(f"Connection established with {sock.getfqdn(client_address[0])} from {client_address[0]}")
+                # Waiting for data from client.
+                while True:
+                    received_data = client_socket.recv(1024).decode()
+                    if not received_data:
+                        continue
+                    # Notifies receive_data method if there is any received data from client.
+                    with self.__lock:
+                        self.send_data(client_socket, f"Received {received_data}")
+                        self.__received_data = received_data
+                        self.__condition.notify_all()
+        finally:
+            self.close()
 
     def receive_data(self) -> None:
         """
