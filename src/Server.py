@@ -125,3 +125,6 @@ class Server:
         """
         for keys in list(self.__clients):
             keys.close()
+
+s = Server(1)
+s.run()
