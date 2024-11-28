@@ -61,6 +61,13 @@ class Server:
         finally:
             self.close()
 
+    def __broadcast_message(self):
+        with sock.socket(sock.AF_INET, sock.SOCK_DGRAM) as broadcaster:
+            broadcaster.setsockopt(sock.SOL_SOCKET, sock.SO_BROADCAST, 1)
+            broadcaster.bind((self.__ip, self.__port))
+
+        broadcaster.sendto(b"salam", ("255.255.255.255", self.__port))
+
     def receive_data(self) -> None:
         """
         Stops the current work util receives a message from client.
@@ -93,6 +100,8 @@ class Server:
 
             # Loops till remaining members joins.
             while len(self) < self.__members:
+                self.__broadcast_message()
+
                 client_socket, client_address = socket.accept()
                 self.__clients[client_socket] = client_address
 
