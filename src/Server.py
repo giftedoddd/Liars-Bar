@@ -69,11 +69,11 @@ class Server:
             try:
                 broadcaster.setsockopt(sock.SOL_SOCKET, sock.SO_REUSEADDR, 1)
                 broadcaster.setsockopt(sock.SOL_SOCKET, sock.SO_BROADCAST, 1)
-                broadcaster.bind(("", self.__port))
+                broadcaster.bind(("", 12345))
 
                 while not self.found:
-                    broadcaster.sendto(f"Who is looking for game on the local network. tell {self.__ip}".encode("utf-8"),
-                                   ("255.255.255.255", self.__port))
+                    broadcaster.sendto(f"Members in \"Liars-Bar\" tell: {self.__ip}:{self.__port}".encode("utf-8"),
+                                   ("255.255.255.255", 12345))
                     time.sleep(5)
             finally:
                 broadcaster.close()
