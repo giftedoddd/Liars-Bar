@@ -1,10 +1,13 @@
+import threading
+import time
 from threading import Thread, Lock, Condition
 import socket as sock
 
 class Server:
     def __init__(self, members):
-        self.__ip = None                                 # Host's ip address: Local(Private) ip that host machine is currently running on.
+        self.__ip = self.__set_ip()                                 # Host's ip address: Local(Private) ip that host machine is currently running on.
         self.__received_data = None                      # Received data from Client.
+        self.found = False                               # Stores a conditional variable(is host founded by clients or not)
         self.__port = 9353                               # Host's port.
         self.__members = members                         # Number of participants of the game.
         self.__clients = {}                              # A dict{socket object:client ip} to store connected clients.
@@ -34,9 +37,9 @@ class Server:
                 # Assigning new valid ip address
                 self.__ip = ip[0]
         except OSError as e:
-            print(f"Function \"ip_check\" throws an Exception:\t{e}")
+            print(f"Function \"ip_check\" throws an Exception:\n{e}")
         except Exception as e:
-            print(f"Crashed due unhandled Exception:\t{e}")
+            print(f"Crashed due unhandled Exception:\n{e}")
 
     # Handles the communication between host and clients.
     def __handle_client(self, client_socket, client_address) -> None:
@@ -63,10 +66,17 @@ class Server:
 
     def __broadcast_message(self):
         with sock.socket(sock.AF_INET, sock.SOCK_DGRAM) as broadcaster:
-            broadcaster.setsockopt(sock.SOL_SOCKET, sock.SO_BROADCAST, 1)
-            broadcaster.bind((self.__ip, self.__port))
+            try:
+                broadcaster.setsockopt(sock.SOL_SOCKET, sock.SO_REUSEADDR, 1)
+                broadcaster.setsockopt(sock.SOL_SOCKET, sock.SO_BROADCAST, 1)
+                broadcaster.bind(("", self.__port))
 
-        broadcaster.sendto(b"salam", ("255.255.255.255", self.__port))
+                while not self.found:
+                    broadcaster.sendto(f"Who is looking for game on the local network. tell {self.__ip}".encode("utf-8"),
+                                   ("255.255.255.255", self.__port))
+                    time.sleep(5)
+            finally:
+                broadcaster.close()
 
     def receive_data(self) -> None:
         """
@@ -92,16 +102,19 @@ class Server:
 
         # Starting the Host.
         with sock.socket(sock.AF_INET, sock.SOCK_STREAM) as socket:
+            socket.setsockopt(sock.SOL_SOCKET, sock.SO_REUSEADDR, 1)
+            socket.setsockopt(sock.SOL_SOCKET, sock.SO_REUSEPORT, 1)
             socket.bind((self.__ip, self.__port))
             socket.listen(self.__members)
 
             # Printing Host Server's status(ip address, port).
             print(self)
 
+            t = threading.Thread(target=self.__broadcast_message)
+            t.start()
+
             # Loops till remaining members joins.
             while len(self) < self.__members:
-                self.__broadcast_message()
-
                 client_socket, client_address = socket.accept()
                 self.__clients[client_socket] = client_address
 
@@ -111,6 +124,7 @@ class Server:
 
                 # Loops in clients dict to start thread for them.
                 if len(self) == self.__members:
+                    self.found = True
                     for client,address in self.__clients.items():
                         client_thread = Thread(target=self.__handle_client,
                                                args=(client, address),
